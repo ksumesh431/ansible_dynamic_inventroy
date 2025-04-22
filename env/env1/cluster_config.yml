@@ -1,4 +1,4 @@
-# env/prod/cluster_config.yml
+# env/env1/cluster_config.yml
 general_config:
   docker_version: "24.0.5"
   username: proot
