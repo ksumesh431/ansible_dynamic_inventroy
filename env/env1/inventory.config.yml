@@ -1,0 +1,3 @@
+# env/prod/inventory.config.yml
+plugin: custom_cluster_inventory # Must match the NAME in the plugin script
+config_file: cluster_config.yml  # Path to the data file, relative to this file

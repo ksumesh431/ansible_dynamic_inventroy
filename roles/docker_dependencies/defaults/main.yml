@@ -1,0 +1,13 @@
+---
+# defaults file for docker_dependencies
+
+# Default Docker version if not specified in inventory/host_vars
+# Your inventory plugin already provides this, so this is just a fallback.
+# docker_version: "24.0.5"
+
+# Docker repository details (for CentOS/Fedora/RHEL based like AL2023)
+docker_repo_url: "https://download.docker.com/linux/centos/docker-ce.repo" # AL2023 uses CentOS repos
+docker_repo_gpgkey: "https://download.docker.com/linux/centos/gpg"
+
+# User to add to the docker group (uses the connection user by default)
+docker_group_user: "{{ ansible_user }}"

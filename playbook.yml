@@ -1,0 +1,10 @@
+---
+- name: Configure Docker Cluster Nodes
+  hosts: all # This will target hosts defined by your dynamic inventory for the chosen env
+  gather_facts: true # Good practice to gather facts
+  become: false # Most tasks in the role use become, no need at play level initially
+
+  roles:
+    - role: docker_dependencies
+      # You could override role defaults here if needed, but inventory vars are preferred
+      # Example: docker_group_user: some_other_user

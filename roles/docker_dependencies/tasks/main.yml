@@ -1,0 +1,59 @@
+---
+# tasks file for docker installation on Amazon Linux 2023
+
+- name: Update all packages
+  become: true
+  ansible.builtin.dnf:
+    name: "*"
+    state: latest
+    update_cache: true
+
+- name: Remove any existing Docker repositories
+  become: true
+  ansible.builtin.file:
+    path: /etc/yum.repos.d/docker-ce.repo
+    state: absent
+
+- name: Install Docker and dependencies from Amazon Linux repos
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - docker
+      - containerd
+    state: present
+  notify: Restart Docker Service
+
+- name: Install Docker Compose
+  become: true
+  ansible.builtin.get_url:
+    url: https://github.com/docker/compose/releases/download/v2.24.6/docker-compose-linux-x86_64
+    dest: /usr/local/bin/docker-compose
+    mode: "0755"
+
+- name: Create symbolic link for docker-compose
+  become: true
+  ansible.builtin.file:
+    src: /usr/local/bin/docker-compose
+    dest: /usr/bin/docker-compose
+    state: link
+
+- name: Ensure Docker service is started and enabled
+  become: true
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Ensure docker group exists
+  become: true
+  ansible.builtin.group:
+    name: docker
+    state: present
+
+- name: Add user to docker group
+  become: true
+  ansible.builtin.user:
+    name: "{{ docker_group_user }}"
+    groups: docker
+    append: true
+  notify: Reset SSH connection for group changes

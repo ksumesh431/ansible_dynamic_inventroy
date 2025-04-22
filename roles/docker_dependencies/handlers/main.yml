@@ -1,0 +1,11 @@
+---
+# handlers file for docker installation
+
+- name: Restart Docker Service
+  become: true
+  ansible.builtin.systemd:
+    name: docker
+    state: restarted
+
+- name: Reset SSH connection for group changes
+  ansible.builtin.meta: reset_connection

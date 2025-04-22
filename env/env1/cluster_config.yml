@@ -1,0 +1,24 @@
+# env/prod/cluster_config.yml
+general_config:
+  docker_version: "24.0.5"
+  username: proot
+  become_password_vault: !vault |
+            $ANSIBLE_VAULT;1.1;AES256
+            31383933316334343238613532613237663061306333363539383038303436353033316431653963
+            3962633165383039376534656232393037333635613261300a353632386338393435646431613963
+            65643834356161666566316262343531363961623338346134343837613231333338333731383934
+            6230643432623538620a383263353134383364376230333232356437373765303730393562663834
+            3762
+
+nodes:
+  node01:
+    docker_node_name: docker-master
+    docker_node_ip: 18.205.240.193 # Replace with actual EC2 IP
+
+  node02:
+    docker_node_name: docker-worker-1
+    docker_node_ip: 54.234.196.230 # Replace with actual EC2 IP
+
+  node03:
+    docker_node_name: docker-worker-2
+    docker_node_ip: 23.22.89.140 # Replace with actual EC2 IP
