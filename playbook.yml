@@ -36,12 +36,12 @@
       run_once: true # Check only once per playbook run
       when: groups['swarm_master'] is defined and groups['swarm_master'] | length > 1
 
-    # Task 4: Set hostnames of master and worker nodes
-    - name: Set hostnames of master and worker nodes
+    # Task 4: Set hostnames based on docker_node_name
+    - name: Set hostnames based on docker_node_name
       become: true
       ansible.builtin.hostname:
-        name: "{{ 'docker-master' if docker_node_name == 'docker-master' else 'docker-worker-' + docker_node_name.split('-')[1] }}"
-      when: docker_node_name is defined # Only set if the variable exists from inventory
+        name: "{{ docker_node_name }}" # Use the variable directly
+      when: docker_node_name is defined # Keep the check that the variable exists
 
 # Play 2: Configure Docker Swarm using the dynamically created groups
 - name: Configure Docker Swarm
