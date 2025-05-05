@@ -3,7 +3,7 @@
 # Play 1: Install Docker, gather facts, and group hosts for Swarm
 - name: Prepare Docker Hosts and Group by Swarm Role
   hosts: all # Target all hosts defined by the dynamic inventory for the chosen env
-  gather_facts: yes # Gather facts initially for IP addresses, etc.
+  gather_facts: true # Gather facts initially for IP addresses, etc.
   become: false # Role/tasks below will use 'become' as needed
 
   roles:
@@ -36,10 +36,16 @@
       run_once: true # Check only once per playbook run
       when: groups['swarm_master'] is defined and groups['swarm_master'] | length > 1
 
+    # Task 4: Set hostnames of master and worker nodes
+    - name: Set hostnames of master and worker nodes
+      ansible.builtin.hostname:
+        name: "{{ 'docker-master' if docker_node_name == 'docker-master' else 'docker-worker-' + docker_node_name.split('-')[1] }}"
+      when: docker_node_name is defined # Only set if the variable exists from inventory
+
 # Play 2: Configure Docker Swarm using the dynamically created groups
 - name: Configure Docker Swarm
   hosts: all # Target all hosts again so master and workers are available for role logic
-  gather_facts: no # Facts were gathered in the previous play
+  gather_facts: false # Facts were gathered in the previous play
   become: false # Role tasks use 'become: true' where needed
 
   roles:
