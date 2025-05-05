@@ -38,6 +38,7 @@
 
     # Task 4: Set hostnames of master and worker nodes
     - name: Set hostnames of master and worker nodes
+      become: true
       ansible.builtin.hostname:
         name: "{{ 'docker-master' if docker_node_name == 'docker-master' else 'docker-worker-' + docker_node_name.split('-')[1] }}"
       when: docker_node_name is defined # Only set if the variable exists from inventory
