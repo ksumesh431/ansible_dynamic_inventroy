@@ -2,17 +2,17 @@
 general_config:
   docker_version: "24.0.5"
   username: ec2-user
-  ssh_private_key_file: /media/kp/D_Drive/Cloud/scripts/onprem_ansible_docker_automation/ansible_project/onprem_docker_txerp_cluster.pem # *** ADD THIS LINE *** Update with the correct absolute path
+  ssh_private_key_file: /root/external_repo/ansible_dynamic_inventroy/onprem_docker_txerp_cluster.pem
 
 nodes:
   node01:
     docker_node_name: docker-master
-    docker_node_ip: 18.205.240.193 # Replace with actual EC2 IP
+    docker_node_ip: 10.254.3.48 # Replace with actual EC2 IP
 
   node02:
     docker_node_name: docker-worker-1
-    docker_node_ip: 54.234.196.230 # Replace with actual EC2 IP
+    docker_node_ip: 10.254.3.92 # Replace with actual EC2 IP
 
   node03:
     docker_node_name: docker-worker-2
-    docker_node_ip: 23.22.89.140 # Replace with actual EC2 IP
+    docker_node_ip: 10.254.3.222  # Replace with actual EC2 IP
