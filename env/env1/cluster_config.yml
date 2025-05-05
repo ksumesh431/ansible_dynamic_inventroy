@@ -1,14 +1,8 @@
 # env/env1/cluster_config.yml
 general_config:
   docker_version: "24.0.5"
-  username: proot
-  become_password_vault: !vault |
-            $ANSIBLE_VAULT;1.1;AES256
-            31383933316334343238613532613237663061306333363539383038303436353033316431653963
-            3962633165383039376534656232393037333635613261300a353632386338393435646431613963
-            65643834356161666566316262343531363961623338346134343837613231333338333731383934
-            6230643432623538620a383263353134383364376230333232356437373765303730393562663834
-            3762
+  username: ec2-user
+  ssh_private_key_file: /media/kp/D_Drive/Cloud/scripts/onprem_ansible_docker_automation/ansible_project/onprem_docker_txerp_cluster.pem # *** ADD THIS LINE *** Update with the correct absolute path
 
 nodes:
   node01:

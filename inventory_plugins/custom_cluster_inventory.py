@@ -75,8 +75,7 @@ class InventoryModule(BaseInventoryPlugin):
 
             # Extract common variables (handle potential missing keys)
             ansible_user = general_config.get("username")
-            # ansible_password = general_config.get("password")  # Insecure!
-            become_password_vault = general_config.get("become_password_vault")
+            ssh_private_key_file = general_config.get("ssh_private_key_file")
             docker_version = general_config.get("docker_version")
 
             # Get the environment name from the directory structure (e.g., 'prod')
@@ -118,34 +117,14 @@ class InventoryModule(BaseInventoryPlugin):
                         self.inventory.set_variable(
                             node_logical_name, "ansible_user", ansible_user
                         )
-                    # Logic for hardcoded password
-                    # if ansible_password:
-                    #     # WARNING: Setting password directly is insecure. Use Vault.
-                    #     self.inventory.set_variable(
-                    #         node_logical_name,
-                    #         "ansible_password",
-                    #         ansible_password,
-                    #     )
-                    #     # Tell Ansible to use the same password for sudo (become)
-                    #     self.inventory.set_variable(
-                    #         node_logical_name,
-                    #         "ansible_become_pass",
-                    #         ansible_password,
-                    #     )
-                    #########################################
-                    # Logic for ansible vault password
-                    if become_password_vault:
-                        # Set both login and become password from the vault variable
+                    # ADDED: Set the private key file variable
+                    if ssh_private_key_file:
                         self.inventory.set_variable(
                             node_logical_name,
-                            "ansible_password",
-                            become_password_vault,
+                            "ansible_ssh_private_key_file",
+                            ssh_private_key_file,
                         )
-                        self.inventory.set_variable(
-                            node_logical_name,
-                            "ansible_become_pass",
-                            become_password_vault,
-                        )
+                    # *** END CHANGES for SSH Key ***
                     if docker_version:
                         self.inventory.set_variable(
                             node_logical_name, "docker_version", docker_version
