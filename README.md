@@ -1,14 +1,17 @@
 # Ansible Docker Cluster Automation
 
-This project uses Ansible with a dynamic inventory system to configure Docker environments (including Docker Engine, Docker Compose, and preparing for Swarm) on target nodes based on environment-specific configuration files.
+This project uses Ansible with a dynamic inventory system to configure Docker environments (including Docker Engine, Docker Compose, and preparing for Swarm) on target nodes based on environment-specific configuration files. Authentication is handled via SSH keys.
 
 ## Prerequisites
 
 - Ansible (version 2.10 or later recommended)
 - Python 3.x (usually installed with Ansible)
 - `PyYAML` Python library (`pip install PyYAML`)
-- SSH access configured from the Ansible control node to the target nodes (using the username/password defined in the config).
-- Ansible Vault password (for decrypting sensitive data).
+- SSH access configured from the Ansible control node to the target nodes:
+    - The user specified in the config (`general_config.username`) must exist on target nodes.
+    - The target nodes must be configured to allow SSH login for that user using the specified private key.
+    - The private key file must exist on the Ansible control node.
+- Passwordless `sudo` configured for the connection user on the target nodes (required for tasks using `become: yes`).
 
 ## Directory Structure
 
@@ -45,21 +48,19 @@ The core configuration for each environment resides within its respective `clust
 **You MUST update these files manually:**
 
 1.  **Node IPs:** The most critical values to update are the `docker_node_ip` for each node within the `nodes:` section. These should be the actual IP addresses (Public or Private, depending on your network setup) of your target EC2 instances or other machines.
-2.  **Other Settings:** You can also adjust:
+2.  **SSH Key Path:** Update `general_config.ssh_private_key_file` with the **absolute path** to the SSH private key file (`.pem` or similar) located on your Ansible control node. This key will be used for authentication.
+3.  **Other Settings:** You can also adjust:
     - `general_config.docker_version`: Specify the desired Docker version.
     - `nodes.<node_name>.docker_node_name`: Assign logical names used within Docker (e.g., for Swarm).
-    - `general_config.username`: The user Ansible will connect as (`proot` in the example).
-    - `general_config.become_password_vault`: **This holds the Ansible Vault encrypted password** for the connection user (`proot`). See Security section.
+    - `general_config.username`: The user Ansible will connect as (e.g., `proot`). This user must be authorized to log in with the specified key.
 
 **Example `cluster_config.yml` structure:**
 
 ```yaml
 general_config:
   docker_version: "24.0.5" # Set desired Docker version
-  username: proot # User for SSH connection
-  become_password_vault: !vault | # Encrypted password (DO NOT EDIT MANUALLY)
-    $ANSIBLE_VAULT;1.1;AES256
-    # ... (encrypted data) ...
+  username: proot # User for SSH connection (must exist on targets)
+  ssh_private_key_file: /home/user/.ssh/my-aws-key.pem # **UPDATE THIS ABSOLUTE PATH**
 
 nodes:
   node01: # Logical name used by Ansible
@@ -79,7 +80,6 @@ nodes:
 
 All Ansible commands need to be pointed to the specific environment you want to target using the `-i` flag followed by the path to the `inventory.config.yml` file within that environment's directory.
 
-You will also need to provide the Ansible Vault password using `--ask-vault-pass` to allow Ansible to decrypt the password stored in `cluster_config.yml`.
 
 **1. Running Playbooks:**
 
@@ -87,13 +87,12 @@ To apply the configuration defined in a playbook (e.g., `playbook.yml`) to a spe
 
 ```bash
 # Example for 'env1'
-ansible-playbook -i env/env1/inventory.config.yml playbook.yml --ask-vault-pass
+ansible-playbook -i env/env1/inventory.config.yml playbook.yml
 
 # Example for 'prod'
-ansible-playbook -i env/prod/inventory.config.yml playbook.yml --ask-vault-pass
+ansible-playbook -i env/prod/inventory.config.yml playbook.yml
 ```
-
-Enter your Vault password when prompted.
+*(If your playbook tasks require privilege escalation, they should include `become: yes`. No extra flags are needed on the command line due to passwordless sudo.)*
 
 **2. Running Ad-hoc Commands:**
 
@@ -101,13 +100,14 @@ To run single commands against hosts in an environment:
 
 ```bash
 # Example: Ping all hosts in 'env1'
-ansible -i env/env1/inventory.config.yml all -m ping --ask-vault-pass
+ansible -i env/env1/inventory.config.yml all -m ping
 
-# Example: Check free memory on all hosts in 'prod'
-ansible -i env/prod/inventory.config.yml all -m shell -a "free -h" --ask-vault-pass
+# Example: Check free memory on all hosts in 'prod' (no privilege needed)
+ansible -i env/prod/inventory.config.yml all -m shell -a "free -h"
+
+# Example: Run 'whoami' as root on all hosts in 'env1' (requires privilege)
+ansible -i env/env1/inventory.config.yml all -m shell -a "whoami" --become
 ```
-
-Enter your Vault password when prompted.
 
 **3. Verifying the Dynamic Inventory:**
 
@@ -118,15 +118,13 @@ You can check the inventory that Ansible generates from your `cluster_config.yml
 ansible-inventory -i env/env1/inventory.config.yml --graph
 
 # Show detailed inventory list with variables for 'env1'
-ansible-inventory -i env/env1/inventory.config.yml --list --ask-vault-pass
+ansible-inventory -i env/env1/inventory.config.yml --list
 ```
-
-_(Note: `--list` might require the vault pass if it needs to resolve vaulted variables for display)._
+*(Note: If you choose to encrypt *other* variables in `cluster_config.yml` using Ansible Vault, you might need `--ask-vault-pass` for the `--list` command to display them.)*
 
 ## Security Considerations
 
-
-- **Ansible Vault:** The user password is **encrypted** using Ansible Vault and stored under the `become_password_vault` key in `cluster_config.yml`.
-  - To edit an encrypted file: `ansible-vault edit env/<environment_name>/cluster_config.yml`
-  - To encrypt a new password string: `ansible-vault encrypt_string 'your_new_password' --name 'become_password_vault'` (then paste the output into the config file).
+- **SSH Private Key Security:** The private key specified in `ssh_private_key_file` must be kept secure on your Ansible control node. Ensure its file permissions restrict access (e.g., `chmod 400 /path/to/your/key.pem`). Anyone with access to this key can potentially access your target servers.
+- **Passwordless Sudo:** This setup assumes the connection user (`general_config.username`) has passwordless sudo configured on the target machines. Ensure this is intentional and appropriately secured (e.g., limited to specific commands if necessary via the `sudoers` file).
 - **SSH Host Key Checking:** `ansible.cfg` currently has `host_key_checking = False` for convenience during initial setup. In a production environment, you should set this to `True` and manage SSH known_hosts files properly to prevent man-in-the-middle attacks.
+
