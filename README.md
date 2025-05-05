@@ -125,6 +125,7 @@ _(Note: `--list` might require the vault pass if it needs to resolve vaulted var
 
 ## Security Considerations
 
+
 - **Ansible Vault:** The user password is **encrypted** using Ansible Vault and stored under the `become_password_vault` key in `cluster_config.yml`.
   - To edit an encrypted file: `ansible-vault edit env/<environment_name>/cluster_config.yml`
   - To encrypt a new password string: `ansible-vault encrypt_string 'your_new_password' --name 'become_password_vault'` (then paste the output into the config file).
