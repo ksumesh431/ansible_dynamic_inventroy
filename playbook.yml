@@ -14,10 +14,10 @@
 
   tasks:
     # Task 1: Dynamically create 'swarm_master' and 'swarm_worker' groups
-    - name: Group hosts by Swarm role based on docker_node_name
+    - name: Group hosts by Swarm role based on docker_node_type
       ansible.builtin.group_by:
         # Creates groups named 'swarm_master' or 'swarm_worker' in memory
-        key: "swarm_{{ 'master' if docker_node_name == 'docker-master' else 'worker' }}"
+        key: "swarm_{{ 'master' if docker_node_type == 'master' else 'worker' }}"
       when: docker_node_name is defined
       changed_when: false
 
