@@ -18,7 +18,7 @@ nodes:
   node03:
     docker_node_name: docker-master-3
     docker_node_type: master
-    docker_node_ip: 10.254.3.73 # Replace with actual EC2 IP
+    docker_node_ip: 10.254.3.35 # Replace with actual EC2 IP
 
   node04:
     docker_node_name: docker-worker-1
