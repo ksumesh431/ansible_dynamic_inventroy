@@ -18,30 +18,31 @@
       ansible.builtin.group_by:
         # Creates groups named 'swarm_master' or 'swarm_worker' in memory
         key: "swarm_{{ 'master' if docker_node_name == 'docker-master' else 'worker' }}"
-      when: docker_node_name is defined # Only group if the variable exists from inventory
-      changed_when: false # Grouping doesn't change system state
+      when: docker_node_name is defined
+      changed_when: false
 
     # Task 2: Sanity check - ensure at least one master is defined
     - name: Fail if no master node defined
       ansible.builtin.fail:
-        msg: "No node found with docker_node_name set to 'docker-master'. Cannot initialize Swarm."
-      run_once: true # Check only once per playbook run
-      # Check if the group wasn't created or is empty
+        msg: "No node found with docker_node_type set to 'master'. Cannot initialize Swarm."
+      run_once: true
       when: groups['swarm_master'] is not defined or groups['swarm_master'] | length == 0
 
-    # Task 3: Sanity check - warn if more than one master is defined (we only use the first)
-    - name: Warn if multiple master nodes defined
+    # Task 3: Information about multiple masters
+    - name: Info about multiple master nodes
       ansible.builtin.debug:
-        msg: "WARNING: Multiple nodes found with docker_node_name 'docker-master'. Using {{ groups['swarm_master'][0] }} as the primary master for joining."
-      run_once: true # Check only once per playbook run
+        msg: >-
+          Found {{ groups['swarm_master'] | length }} node(s) with docker_node_type 'master'.
+          {{ groups['swarm_master'][0] }} will be used as the initial master for token retrieval.
+      run_once: true
       when: groups['swarm_master'] is defined and groups['swarm_master'] | length > 1
 
     # Task 4: Set hostnames based on docker_node_name
     - name: Set hostnames based on docker_node_name
       become: true
       ansible.builtin.hostname:
-        name: "{{ docker_node_name }}" # Use the variable directly
-      when: docker_node_name is defined # Keep the check that the variable exists
+        name: "{{ docker_node_name }}"
+      when: docker_node_name is defined
 
 # Play 2: Configure Docker Swarm using the dynamically created groups
 - name: Configure Docker Swarm
@@ -50,6 +51,6 @@
   become: false # Role tasks use 'become: true' where needed
 
   roles:
-    # Role 2: Initialize Swarm on master and join workers
+    # Role 2: Initialize Swarm on masters and join workers
     - role: docker_swarm
 

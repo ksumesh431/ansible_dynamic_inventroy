@@ -3,76 +3,117 @@
 - name: Check if node is already in a Swarm
   become: true
   ansible.builtin.command: docker info
-  register: docker_info
+  register: docker_info_result # Renamed for clarity
   changed_when: false
-  failed_when: false
+  failed_when: false # Don't fail if docker command fails (e.g., not installed yet)
 
 - name: Set swarm_active fact
   ansible.builtin.set_fact:
-    swarm_active: "{{ 'Swarm: active' in docker_info.stdout }}"
-  when: docker_info.rc == 0
+    swarm_active: "{{ 'Swarm: active' in docker_info_result.stdout }}"
+  when: docker_info_result.rc == 0 # Only set if docker info command succeeded
 
-# --- Master Node Tasks ---
-- name: Initialize Docker Swarm on the master node
+- name: Set is_manager fact
+  ansible.builtin.set_fact:
+    is_manager: "{{ 'Is Manager: true' in docker_info_result.stdout }}"
+  when: docker_info_result.rc == 0 and swarm_active
+
+# --- First Master Node Tasks ---
+- name: Initialize Docker Swarm on the FIRST master node
   become: true
   ansible.builtin.command: >
     docker swarm init --advertise-addr {{ ansible_host }}
   register: swarm_init_result
   when:
-    - inventory_hostname in groups['swarm_master']
+    - inventory_hostname == groups['swarm_master'][0] # Only on the first host in swarm_master group
     - not swarm_active | default(false)
   changed_when: "'Swarm initialized' in swarm_init_result.stdout"
 
-# *** ADDED: Pause briefly after init ***
 - name: Pause for 5 seconds after Swarm init
   ansible.builtin.pause:
     seconds: 5
   when:
-    # Only pause if init actually ran and changed something
-    - inventory_hostname in groups['swarm_master']
+    - inventory_hostname == groups['swarm_master'][0]
     - swarm_init_result.changed | default(false)
 
-- name: Get the worker join token from the master
+- name: Get MANAGER join token from the FIRST master
+  become: true
+  ansible.builtin.command: docker swarm join-token manager -q
+  register: manager_token_result
+  when:
+    - inventory_hostname == groups['swarm_master'][0] # Run on the first master
+  changed_when: false
+
+- name: Store MANAGER token and FIRST master IP as facts on the FIRST master
+  ansible.builtin.set_fact:
+    swarm_manager_token: "{{ manager_token_result.stdout }}"
+    swarm_first_master_ip: "{{ ansible_host }}" # IP of the first master
+  when:
+    - inventory_hostname == groups['swarm_master'][0]
+    - manager_token_result.rc == 0
+
+# --- Other Master Nodes Tasks ---
+- name: Join OTHER master nodes to the Swarm
+  become: true
+  ansible.builtin.command: >
+    docker swarm join --token {{ hostvars[groups['swarm_master'][0]]['swarm_manager_token'] }} {{ hostvars[groups['swarm_master'][0]]['swarm_first_master_ip'] }}:2377
+  register: swarm_join_manager_result
+  when:
+    - inventory_hostname in groups['swarm_master']
+    - inventory_hostname != groups['swarm_master'][0] # Not the first master
+    - not is_manager | default(false) # Only if not already a manager
+    - hostvars[groups['swarm_master'][0]]['swarm_manager_token'] is defined
+    - hostvars[groups['swarm_master'][0]]['swarm_first_master_ip'] is defined
+  changed_when: "'This node joined a swarm as a manager' in swarm_join_manager_result.stdout"
+  failed_when:
+    - swarm_join_manager_result.rc != 0
+    - "'This node is already part of a swarm' not in swarm_join_manager_result.stderr"
+    - "'This node is already a (manager|worker) in the swarm' not in swarm_join_manager_result.stderr" # More generic
+
+- name: Pause for 5 seconds after OTHER masters join (for stability)
+  ansible.builtin.pause:
+    seconds: 5
+  when:
+    - inventory_hostname in groups['swarm_master']
+    - inventory_hostname != groups['swarm_master'][0]
+    - swarm_join_manager_result.changed | default(false)
+
+# --- Worker Token Retrieval (from any manager, typically the first one) ---
+- name: Get WORKER join token from the FIRST master
   become: true
   ansible.builtin.command: docker swarm join-token worker -q
   register: worker_token_result
   when:
-    - inventory_hostname in groups['swarm_master']
+    - inventory_hostname == groups['swarm_master'][0] # Run on the first master
   changed_when: false
 
-- name: Store worker token and master IP as facts on the master
+- name: Store WORKER token as fact on the FIRST master
   ansible.builtin.set_fact:
     swarm_worker_token: "{{ worker_token_result.stdout }}"
-    swarm_master_ip: "{{ ansible_host }}"
   when:
-    - inventory_hostname in groups['swarm_master']
+    - inventory_hostname == groups['swarm_master'][0]
     - worker_token_result.rc == 0
 
 # --- Worker Node Tasks ---
-
-# *** ADDED: Debugging task ***
 - name: Debug Swarm Join Variables (Worker)
   ansible.builtin.debug:
     msg: >-
       Attempting join with Token={{ hostvars[groups['swarm_master'][0]]['swarm_worker_token'] | default('UNDEFINED') }}
-      MasterIP={{ hostvars[groups['swarm_master'][0]]['swarm_master_ip'] | default('UNDEFINED') }}
+      MasterIP={{ hostvars[groups['swarm_master'][0]]['swarm_first_master_ip'] | default('UNDEFINED') }}
   when:
     - inventory_hostname in groups['swarm_worker']
-    - not swarm_active | default(false)
+    - not swarm_active | default(false) # Only if not already in a swarm
 
 - name: Join worker nodes to the Swarm
   become: true
   ansible.builtin.command: >
-    docker swarm join --token {{ hostvars[groups['swarm_master'][0]]['swarm_worker_token'] }} {{ hostvars[groups['swarm_master'][0]]['swarm_master_ip'] }}:2377
-  register: swarm_join_result
+    docker swarm join --token {{ hostvars[groups['swarm_master'][0]]['swarm_worker_token'] }} {{ hostvars[groups['swarm_master'][0]]['swarm_first_master_ip'] }}:2377
+  register: swarm_join_worker_result
   when:
     - inventory_hostname in groups['swarm_worker']
-    - not swarm_active | default(false)
+    - not swarm_active | default(false) # Only if not already in a swarm
     - hostvars[groups['swarm_master'][0]]['swarm_worker_token'] is defined
-    - hostvars[groups['swarm_master'][0]]['swarm_master_ip'] is defined
-  changed_when: "'This node joined a swarm as a worker' in swarm_join_result.stdout"
+    - hostvars[groups['swarm_master'][0]]['swarm_first_master_ip'] is defined
+  changed_when: "'This node joined a swarm as a worker' in swarm_join_worker_result.stdout"
   failed_when:
-    - swarm_join_result.rc != 0
-    - "'This node is already part of a swarm' not in swarm_join_result.stderr"
-
-
+    - swarm_join_worker_result.rc != 0
+    - "'This node is already part of a swarm' not in swarm_join_worker_result.stderr"

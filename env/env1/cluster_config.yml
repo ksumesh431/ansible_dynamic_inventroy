@@ -6,13 +6,26 @@ general_config:
 
 nodes:
   node01:
-    docker_node_name: docker-master
+    docker_node_name: docker-master-1
+    docker_node_type: master
     docker_node_ip: 10.254.3.48 # Replace with actual EC2 IP
 
   node02:
-    docker_node_name: docker-worker-1
-    docker_node_ip: 10.254.3.92 # Replace with actual EC2 IP
+    docker_node_name: docker-master-2
+    docker_node_type: master
+    docker_node_ip: 10.254.3.48 # Replace with actual EC2 IP
 
   node03:
+    docker_node_name: docker-master-3
+    docker_node_type: master
+    docker_node_ip: 10.254.3.73 # Replace with actual EC2 IP
+
+  node04:
+    docker_node_name: docker-worker-1
+    docker_node_type: worker
+    docker_node_ip: 10.254.3.92 # Replace with actual EC2 IP
+
+  node05:
     docker_node_name: docker-worker-2
+    docker_node_type: worker
     docker_node_ip: 10.254.3.222  # Replace with actual EC2 IP

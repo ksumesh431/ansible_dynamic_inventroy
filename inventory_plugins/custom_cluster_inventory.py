@@ -62,14 +62,12 @@ class InventoryModule(BaseInventoryPlugin):
                 raise AnsibleParserError(
                     f"Failed to load cluster config file {config_file_path_abs} using Ansible loader: {e}"
                 )
-            # --- End of change ---
             if not data:
                 raise AnsibleParserError(
                     f"Cluster config file is empty or invalid: {config_file_path_abs}"
                 )
 
             # --- Process Data and Populate Inventory ---
-
             general_config = data.get("general_config", {})
             nodes = data.get("nodes", {})
 
@@ -87,7 +85,7 @@ class InventoryModule(BaseInventoryPlugin):
                 try:
                     ip_address = node_data.get("docker_node_ip")
                     docker_node_name = node_data.get("docker_node_name")
-
+                    docker_node_type = node_data.get("docker_node_type")
                     if not ip_address:
                         display.warning(
                             f"Skipping node '{node_logical_name}' due to missing "
@@ -136,6 +134,13 @@ class InventoryModule(BaseInventoryPlugin):
                             docker_node_name,
                         )
 
+                    if docker_node_type:  # *** ADD THIS BLOCK ***
+                        self.inventory.set_variable(
+                            node_logical_name,
+                            "docker_node_type",
+                            docker_node_type,
+                        )
+                        
                     # Add any other node-specific vars if needed
                     # for key, value in node_data.items():
                     #    if key not in ['docker_node_ip', 'docker_node_name']:
