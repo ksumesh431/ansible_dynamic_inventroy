@@ -1,3 +1,2 @@
-userdata.sh
 onprem_docker_txerp_cluster.pem
 group_vars/*
