@@ -1,0 +1,60 @@
+#SPDX-License-Identifier: MIT-0
+---
+# tasks file for roles/tomcat_deployment
+# roles/tomcat_deployment/tasks/main.yml
+---
+- name: Define host paths for Tomcat volumes
+  ansible.builtin.set_fact:
+    tomcat_volume_paths:
+      - /opt/teams/share/pd/logs
+      - /opt/teams/share/environments/pd # Parent for 'shared' and 'jasper'
+      - /opt/teams/share/environments/pd/jasper
+      - /opt/glowroot # Parent directory for glowroot.properties
+
+- name: Ensure Tomcat volume host directories exist on all Swarm nodes
+  become: true
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755' # Adjust permissions as needed
+  loop: "{{ tomcat_volume_paths }}"
+  # This task should run on ALL nodes that could potentially host the service.
+  # If you constrain your service to specific nodes (e.g., workers),
+  # you could target only those nodes here. For now, let's assume all.
+
+- name: Ensure Glowroot properties file exists on all Swarm nodes
+  become: true
+  ansible.builtin.template:
+    src: glowroot.properties.j2
+    dest: /opt/glowroot/glowroot.properties # This is the 'device' path for the volume
+    mode: '0644' # Adjust permissions as needed
+  # This task should also run on ALL nodes that could potentially host the service.
+
+- name: Deploy Tomcat stack to Swarm
+  become: true
+  community.docker.docker_stack:
+    state: present
+    name: tomcat_stack # Name of your stack
+    compose:
+      - "{{ role_path }}/files/tomcat-stack.yml" # Path to your compose file within the role
+    with_registry_auth: true # Important if pulling from private ECR, relies on node's IAM role
+    prune: true # Remove services not in the compose file for this stack
+  delegate_to: "{{ groups['swarm_master'][0] }}" # Run this command on the Swarm master
+  run_once: true # Only needs to be run once per playbook execution
+  when: groups['swarm_master'] is defined and groups['swarm_master'] | length > 0
+
+- name: Verify Tomcat stack services
+  become: true
+  ansible.builtin.command: docker stack ps tomcat_stack
+  register: stack_ps_output
+  changed_when: false
+  delegate_to: "{{ groups['swarm_master'][0] }}"
+  run_once: true
+  when: groups['swarm_master'] is defined and groups['swarm_master'] | length > 0
+
+- name: Display Tomcat stack status
+  ansible.builtin.debug:
+    var: stack_ps_output.stdout_lines
+  when: stack_ps_output is defined and stack_ps_output.stdout_lines is defined
+  delegate_to: "{{ groups['swarm_master'][0] }}"
+  run_once: true

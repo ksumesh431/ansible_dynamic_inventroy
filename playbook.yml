@@ -54,3 +54,11 @@
     # Role 2: Initialize Swarm on masters and join workers
     - role: docker_swarm
 
+# Play 3: Deploy Tomcat Application Stack
+- name: Deploy Tomcat Application
+  hosts: all # Tasks inside the role will target specific nodes or delegate
+  gather_facts: false
+  become: false # Role tasks use 'become' as needed
+
+  roles:
+    - role: tomcat_deployment
