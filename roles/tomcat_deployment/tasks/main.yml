@@ -40,12 +40,15 @@
   #   # ... and so on for all variables used in the template
 
 - name: DEBUG - Python interpreter on master for docker_stack
-  become: true # May need sudo to run 'which python' if not in user path
-  ansible.builtin.command: "which python3.9 ; python3.9 -c 'import sys; print(sys.executable); print(sys.path)'"
+  become: true
+  ansible.builtin.shell: "which python3.9 && echo '---' && {{ ansible_python_interpreter | default('/usr/bin/python3.9') }} -c 'import sys; print(sys.executable); print(sys.path); import jsondiff; print(jsondiff.__file__)'"
   register: python_debug_master
   delegate_to: "{{ groups['swarm_master'][0] }}"
   run_once: true
   when: groups['swarm_master'] is defined and groups['swarm_master'] | length > 0
+  changed_when: false # This is a debug task, shouldn't report changes
+  failed_when: false  # We want to see the output even if parts of the shell command fail
+
 
 - name: DEBUG - Show Python debug info from master
   ansible.builtin.debug:
