@@ -23,44 +23,64 @@
     dest: /opt/glowroot/glowroot.properties
     mode: '0644'
 
-# *** NEW TASK: Render the Docker Compose template ***
-- name: Render Tomcat stack compose file from template
+# --- Template Rendering and Deployment ---
+
+- name: Render Tomcat stack compose file locally
   ansible.builtin.template:
     src: tomcat-stack.yml.j2
-    dest: "/tmp/tomcat-stack-{{ inventory_hostname_short }}.yml" # Temporary file on control node
-  delegate_to: localhost # Render the template on the Ansible control node
-  run_once: true # Only need to render it once
-  register: rendered_compose_file
-  # Ensure variables are available for templating
-  # This might not be strictly necessary if using group_vars correctly,
-  # but good for clarity if vars are defined elsewhere.
-  # vars:
-  #   tomcat_schedule_manager: "{{ tomcat_schedule_manager }}"
-  #   tomcat_tz: "{{ tomcat_tz }}"
-  #   # ... and so on for all variables used in the template
+    dest: "/tmp/tomcat-stack-rendered-{{ inventory_hostname_short }}.yml" # Temp file on control node
+  delegate_to: localhost
+  run_once: true # Only need one rendered file
+  register: rendered_compose_local
+  check_mode: no # Ensure this runs even in check mode to get the path
 
-- name: Deploy Tomcat stack to Swarm
+- name: Define temporary path on master node
+  ansible.builtin.set_fact:
+    # Create a unique-ish temporary path on the remote master
+    remote_compose_path: "/tmp/tomcat-stack-remote-{{ ansible_date_time.epoch }}.yml"
+  run_once: true # Only need one path name
+
+- name: Copy rendered compose file to Swarm master
+  become: true # May need sudo to write to /tmp on master
+  ansible.builtin.copy:
+    src: "{{ rendered_compose_local.dest }}" # Path on control node
+    dest: "{{ remote_compose_path }}"        # Path on master node
+    mode: '0644'
+  delegate_to: "{{ groups['swarm_master'][0] }}"
+  run_once: true # Copy it once to the master
+  when: groups['swarm_master'] is defined and groups['swarm_master'] | length > 0
+
+- name: Deploy Tomcat stack to Swarm using file on master
   become: true
   community.docker.docker_stack:
     state: present
     name: tomcat_stack
-    # *** MODIFIED: Use the content of the rendered template ***
     compose:
-      - "{{ lookup('file', rendered_compose_file.dest) }}" # Read content from the temp file
+      - "{{ remote_compose_path }}" # *** CORRECTED: Use path ON THE MASTER ***
     with_registry_auth: true
     prune: true
   delegate_to: "{{ groups['swarm_master'][0] }}"
   run_once: true
   when: groups['swarm_master'] is defined and groups['swarm_master'] | length > 0
 
-# *** NEW TASK: Clean up the temporary compose file ***
-- name: Clean up temporary rendered compose file
+- name: Clean up temporary compose file on Swarm master
+  become: true
   ansible.builtin.file:
-    path: "{{ rendered_compose_file.dest }}"
+    path: "{{ remote_compose_path }}"
+    state: absent
+  delegate_to: "{{ groups['swarm_master'][0] }}"
+  run_once: true
+  when:
+    - groups['swarm_master'] is defined and groups['swarm_master'] | length > 0
+    - remote_compose_path is defined # Ensure variable exists
+
+- name: Clean up temporary rendered compose file on control node
+  ansible.builtin.file:
+    path: "{{ rendered_compose_local.dest }}"
     state: absent
   delegate_to: localhost
   run_once: true
-  when: rendered_compose_file.dest is defined
+  when: rendered_compose_local.dest is defined
 
 - name: Verify Tomcat stack services
   become: true
