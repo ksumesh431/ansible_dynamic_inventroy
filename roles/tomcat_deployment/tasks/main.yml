@@ -39,6 +39,35 @@
   #   tomcat_tz: "{{ tomcat_tz }}"
   #   # ... and so on for all variables used in the template
 
+- name: DEBUG - Python interpreter on master for docker_stack
+  become: true # May need sudo to run 'which python' if not in user path
+  ansible.builtin.command: "which python3.9 ; python3.9 -c 'import sys; print(sys.executable); print(sys.path)'"
+  register: python_debug_master
+  delegate_to: "{{ groups['swarm_master'][0] }}"
+  run_once: true
+  when: groups['swarm_master'] is defined and groups['swarm_master'] | length > 0
+
+- name: DEBUG - Show Python debug info from master
+  ansible.builtin.debug:
+    var: python_debug_master.stdout_lines
+  when: python_debug_master is defined
+  run_once: true # Matches the run_once of the command
+
+- name: DEBUG - Check if jsondiff is importable by the interpreter on master
+  become: true
+  ansible.builtin.command: "{{ ansible_python_interpreter | default('/usr/bin/python3.9') }} -c 'import jsondiff; print(jsondiff.__file__)'"
+  register: jsondiff_import_test_master
+  failed_when: false # We want to see the output even if it fails
+  delegate_to: "{{ groups['swarm_master'][0] }}"
+  run_once: true
+  when: groups['swarm_master'] is defined and groups['swarm_master'] | length > 0
+
+- name: DEBUG - Show jsondiff import test result from master
+  ansible.builtin.debug:
+    var: jsondiff_import_test_master
+  when: jsondiff_import_test_master is defined
+  run_once: true
+
 - name: Deploy Tomcat stack to Swarm
   become: true
   community.docker.docker_stack:
