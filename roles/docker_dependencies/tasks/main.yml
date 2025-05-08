@@ -24,17 +24,6 @@
   args:
     creates: /opt/ansible_docker_venv/bin/activate
 
-- name: Install docker and jsondiff into the virtual environment
-  become: true
-  ansible.builtin.pip:
-    name:
-      - docker
-      - jsondiff
-    virtualenv: /opt/ansible_docker_venv
-    virtualenv_python: python3.9 # Specify python version for venv
-    state: present
-
-
 
 - name: Update all packages
   become: true
@@ -122,3 +111,19 @@
     mode: '0600' # Restrictive permissions
   notify: Restart Docker Service # Assuming you have a handler to restart docker
 
+################## dependencies for docker ansible module ###############
+
+- name: Ensure pip is available for the system Python 3.9 on Swarm master(s)
+  become: true
+  ansible.builtin.dnf:
+    name: python3.9-pip
+    state: present
+
+- name: Install Docker SDK and jsondiff for system Python 3.9 on Swarm master(s)
+  become: true
+  ansible.builtin.pip:
+    name:
+      - docker
+      - jsondiff
+    executable: /usr/bin/pip3.9 # Be explicit about which pip
+    state: present
