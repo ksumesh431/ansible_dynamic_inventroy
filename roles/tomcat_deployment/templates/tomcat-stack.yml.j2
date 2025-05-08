@@ -28,7 +28,7 @@ services:
       replicas: 1 # Or use a variable: {{ tomcat_replicas | default(1) }}
       resources:
         reservations:
-          memory: 28000M # Or use a variable: {{ tomcat_memory_reservation | default('28000M') }}
+          memory: {{ tomcat_memory_reservation | default('3072M') }}
 volumes:
   tomcat_logs:
     driver: local
