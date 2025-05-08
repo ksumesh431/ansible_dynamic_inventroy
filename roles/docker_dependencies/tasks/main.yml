@@ -1,6 +1,41 @@
 ---
 # tasks file for docker installation on Amazon Linux 2023
 
+# In roles/docker_dependencies/tasks/main.yml
+- name: Ensure Python 3.9 virtualenv packages are installed
+  become: true
+  ansible.builtin.dnf:
+    name:
+      - python3.9-devel # For building some pip packages if needed
+      - python3.9-pip
+      - python3.9-virtualenv # Or just 'python3-virtualenv'
+    state: present
+
+- name: Create a virtual environment for Ansible Docker modules
+  become: true # Or run as a specific user if preferred
+  ansible.builtin.pip:
+    name: virtualenv
+    executable: pip3.9 # Ensure virtualenv itself is installed if not via dnf
+  # This task might be redundant if python3.9-virtualenv installs the command
+
+- name: Create the virtualenv directory
+  become: true
+  ansible.builtin.command: "python3.9 -m venv /opt/ansible_docker_venv"
+  args:
+    creates: /opt/ansible_docker_venv/bin/activate
+
+- name: Install docker and jsondiff into the virtual environment
+  become: true
+  ansible.builtin.pip:
+    name:
+      - docker
+      - jsondiff
+    virtualenv: /opt/ansible_docker_venv
+    virtualenv_python: python3.9 # Specify python version for venv
+    state: present
+
+
+
 - name: Update all packages
   become: true
   ansible.builtin.dnf:
@@ -87,20 +122,3 @@
     mode: '0600' # Restrictive permissions
   notify: Restart Docker Service # Assuming you have a handler to restart docker
 
-############## docker ansible module dependencies ###############
-
-- name: Ensure pip is available for Python 3.9 (or your target Python)
-  become: true
-  ansible.builtin.dnf:
-    name: python3.9-pip # Adjust package name if your Python version differs
-    state: present
-  # No 'when' condition, runs on all nodes in the play
-
-- name: Install required Python libraries for Docker modules
-  become: true
-  ansible.builtin.pip:
-    name:
-      - docker # Docker SDK for Python
-      - jsondiff # For docker_stack
-    executable: pip3.9 # Or pip3 if python3-pip installs 'pip3'
-    state: present
