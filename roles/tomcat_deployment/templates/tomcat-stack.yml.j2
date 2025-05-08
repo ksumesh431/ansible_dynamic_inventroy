@@ -1,7 +1,7 @@
 version: '3.8'
 services:
   tomcat:
-    image: 575672604269.dkr.ecr.us-east-1.amazonaws.com/ferp:2025.1.04-24.2.38714-101dd-release-2025.1.04-24
+    image: 575672604269.dkr.ecr.us-east-1.amazonaws.com/ferp:2025.1.04-24-X.38524-976e5-master
     ports:
       - "8080:8080"
       - "4000:4000"
@@ -16,7 +16,7 @@ services:
     volumes:
       # Use named volumes for directories (assuming host paths exist)
       - tomcat_logs:/usr/local/tomcat/logs
-      - tomcat_shared:/opt/teams/share/environments/pd
+      - tomcat_shared:/opt/teams/share/environments/{{ tomcat_env }}
       - tomcat_jasper:/opt/teams/share/jasper
       # *** CORRECTED: Use direct bind mount for the single file ***
       - type: bind
@@ -40,16 +40,16 @@ volumes:
     driver_opts:
       type: 'none'
       o: 'bind'
-      device: '/opt/teams/share/pd/logs'
+      device: '/opt/teams/share/{{ tomcat_env }}/logs'
   tomcat_shared:
     driver: local
     driver_opts:
       type: 'none'
       o: 'bind'
-      device: '/opt/teams/share/environments/pd'
+      device: '/opt/teams/share/environments/{{ tomcat_env }}'
   tomcat_jasper:
     driver: local
     driver_opts:
       type: 'none'
       o: 'bind'
-      device: '/opt/teams/share/environments/pd/jasper'
+      device: '/opt/teams/share/environments/{{ tomcat_env }}/jasper'
