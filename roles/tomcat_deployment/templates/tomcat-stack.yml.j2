@@ -1,0 +1,56 @@
+version: '3.8'
+services:
+  tomcat:
+    image: 575672604269.dkr.ecr.us-east-1.amazonaws.com/ferp:2025.1.04-24.2.38714-101dd-release-2025.1.04-24
+    ports:
+      - "8080:8080"
+      - "4000:4000"
+    environment:
+      SCHEDULE_MANAGER: "{{ tomcat_schedule_manager }}"
+      TZ: "{{ tomcat_tz }}"
+      CATALINA_OPTS: "{{ tomcat_catalina_opts }}"
+      DB_PASSWORD: "{{ tomcat_db_password }}"
+      DB_TYPE: "{{ tomcat_db_type }}"
+      DB_URL: "{{ tomcat_db_url }}"
+      DB_USER: "{{ tomcat_db_user }}"
+    volumes:
+      - tomcat_logs:/usr/local/tomcat/logs
+      - tomcat_shared:/opt/teams/share/environments/pd
+      - tomcat_jasper:/opt/teams/share/jasper
+      - tomcat_glowroot_config:/opt/glowroot/glowroot.properties
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/common/SimpleSystemStatusServlet?healthcheck=true"]
+      interval: 20s
+      timeout: 20s
+      retries: 10
+      start_period: 120s
+    deploy:
+      replicas: 1 # Or use a variable: {{ tomcat_replicas | default(1) }}
+      resources:
+        reservations:
+          memory: 28000M # Or use a variable: {{ tomcat_memory_reservation | default('28000M') }}
+volumes:
+  tomcat_logs:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/opt/teams/share/pd/logs'
+  tomcat_shared:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/opt/teams/share/environments/pd'
+  tomcat_jasper:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/opt/teams/share/environments/pd/jasper'
+  tomcat_glowroot_config:
+    driver: local
+    driver_opts:
+      type: 'none'
+      o: 'bind'
+      device: '/opt/glowroot/glowroot.properties'

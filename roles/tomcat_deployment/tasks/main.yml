@@ -1,47 +1,66 @@
-#SPDX-License-Identifier: MIT-0
----
-# tasks file for roles/tomcat_deployment
 # roles/tomcat_deployment/tasks/main.yml
 ---
 - name: Define host paths for Tomcat volumes
   ansible.builtin.set_fact:
     tomcat_volume_paths:
       - /opt/teams/share/pd/logs
-      - /opt/teams/share/environments/pd # Parent for 'shared' and 'jasper'
+      - /opt/teams/share/environments/pd
       - /opt/teams/share/environments/pd/jasper
-      - /opt/glowroot # Parent directory for glowroot.properties
+      - /opt/glowroot
 
 - name: Ensure Tomcat volume host directories exist on all Swarm nodes
   become: true
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
-    mode: '0755' # Adjust permissions as needed
+    mode: '0755'
   loop: "{{ tomcat_volume_paths }}"
-  # This task should run on ALL nodes that could potentially host the service.
-  # If you constrain your service to specific nodes (e.g., workers),
-  # you could target only those nodes here. For now, let's assume all.
 
 - name: Ensure Glowroot properties file exists on all Swarm nodes
   become: true
   ansible.builtin.template:
     src: glowroot.properties.j2
-    dest: /opt/glowroot/glowroot.properties # This is the 'device' path for the volume
-    mode: '0644' # Adjust permissions as needed
-  # This task should also run on ALL nodes that could potentially host the service.
+    dest: /opt/glowroot/glowroot.properties
+    mode: '0644'
+
+# *** NEW TASK: Render the Docker Compose template ***
+- name: Render Tomcat stack compose file from template
+  ansible.builtin.template:
+    src: tomcat-stack.yml.j2
+    dest: "/tmp/tomcat-stack-{{ inventory_hostname_short }}.yml" # Temporary file on control node
+  delegate_to: localhost # Render the template on the Ansible control node
+  run_once: true # Only need to render it once
+  register: rendered_compose_file
+  # Ensure variables are available for templating
+  # This might not be strictly necessary if using group_vars correctly,
+  # but good for clarity if vars are defined elsewhere.
+  # vars:
+  #   tomcat_schedule_manager: "{{ tomcat_schedule_manager }}"
+  #   tomcat_tz: "{{ tomcat_tz }}"
+  #   # ... and so on for all variables used in the template
 
 - name: Deploy Tomcat stack to Swarm
   become: true
   community.docker.docker_stack:
     state: present
-    name: tomcat_stack # Name of your stack
+    name: tomcat_stack
+    # *** MODIFIED: Use the content of the rendered template ***
     compose:
-      - "{{ role_path }}/files/tomcat-stack.yml" # Path to your compose file within the role
-    with_registry_auth: true # Important if pulling from private ECR, relies on node's IAM role
-    prune: true # Remove services not in the compose file for this stack
-  delegate_to: "{{ groups['swarm_master'][0] }}" # Run this command on the Swarm master
-  run_once: true # Only needs to be run once per playbook execution
+      - "{{ lookup('file', rendered_compose_file.dest) }}" # Read content from the temp file
+    with_registry_auth: true
+    prune: true
+  delegate_to: "{{ groups['swarm_master'][0] }}"
+  run_once: true
   when: groups['swarm_master'] is defined and groups['swarm_master'] | length > 0
+
+# *** NEW TASK: Clean up the temporary compose file ***
+- name: Clean up temporary rendered compose file
+  ansible.builtin.file:
+    path: "{{ rendered_compose_file.dest }}"
+    state: absent
+  delegate_to: localhost
+  run_once: true
+  when: rendered_compose_file.dest is defined
 
 - name: Verify Tomcat stack services
   become: true
