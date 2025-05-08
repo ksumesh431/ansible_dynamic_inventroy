@@ -89,20 +89,18 @@
 
 ############## docker ansible module dependencies ###############
 
-# This task should run on the Swarm Master(s)
-- name: Ensure pip is available on Swarm master(s) for Docker SDK dependencies
+- name: Ensure pip is available for Python 3.9 (or your target Python)
   become: true
   ansible.builtin.dnf:
-    name: python3.9-pip # Adjust if your Python version differs on masters
+    name: python3.9-pip # Adjust package name if your Python version differs
     state: present
-  when: inventory_hostname in groups['swarm_master'] # Target only masters
+  # No 'when' condition, runs on all nodes in the play
 
-- name: Install required Python libraries for Docker modules on Swarm master(s)
+- name: Install required Python libraries for Docker modules
   become: true
   ansible.builtin.pip:
     name:
       - docker # Docker SDK for Python
       - jsondiff # For docker_stack
-    executable: pip3.9 # Or pip3, matching the Python Ansible uses
+    executable: pip3.9 # Or pip3 if python3-pip installs 'pip3'
     state: present
-  when: inventory_hostname in groups['swarm_master'] # Target only masters
