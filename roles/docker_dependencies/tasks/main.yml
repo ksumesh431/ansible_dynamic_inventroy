@@ -57,3 +57,32 @@
     groups: docker
     append: true
   notify: Reset SSH connection for group changes
+
+
+############## ECR repo pull setup ################
+- name: Install Amazon ECR Credential Helper
+  become: true
+  ansible.builtin.dnf:
+    name: amazon-ecr-credential-helper
+    state: present
+
+- name: Ensure .docker directory exists for root user
+  become: true
+  ansible.builtin.file:
+    path: /root/.docker
+    state: directory
+    mode: '0700' # Restrictive permissions
+
+- name: Configure Docker to use ECR credential helper for root user
+  become: true
+  ansible.builtin.copy:
+    content: |
+      {
+        "credHelpers": {
+          "public.ecr.aws": "ecr-login",
+          "575672604269.dkr.ecr.us-east-1.amazonaws.com": "ecr-login"
+        }
+      }
+    dest: /root/.docker/config.json
+    mode: '0600' # Restrictive permissions
+  notify: Restart Docker Service # Assuming you have a handler to restart docker
