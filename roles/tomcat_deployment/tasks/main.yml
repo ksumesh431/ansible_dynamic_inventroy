@@ -3,9 +3,9 @@
 - name: Define host paths for Tomcat volumes
   ansible.builtin.set_fact:
     tomcat_volume_paths:
-      - /opt/teams/share/pd/logs
-      - /opt/teams/share/environments/pd
-      - /opt/teams/share/environments/pd/jasper
+      - /opt/teams/share/{{ tomcat_env }}/logs
+      - /opt/teams/share/environments/{{ tomcat_env }}
+      - /opt/teams/share/environments/{{ tomcat_env }}/jasper
       - /opt/glowroot
 
 - name: Ensure Tomcat volume host directories exist on all Swarm nodes
