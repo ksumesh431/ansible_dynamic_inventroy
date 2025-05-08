@@ -86,3 +86,23 @@
     dest: /root/.docker/config.json
     mode: '0600' # Restrictive permissions
   notify: Restart Docker Service # Assuming you have a handler to restart docker
+
+############## docker ansible module dependencies ###############
+
+# This task should run on the Swarm Master(s)
+- name: Ensure pip is available on Swarm master(s) for Docker SDK dependencies
+  become: true
+  ansible.builtin.dnf:
+    name: python3.9-pip # Adjust if your Python version differs on masters
+    state: present
+  when: inventory_hostname in groups['swarm_master'] # Target only masters
+
+- name: Install required Python libraries for Docker modules on Swarm master(s)
+  become: true
+  ansible.builtin.pip:
+    name:
+      - docker # Docker SDK for Python
+      - jsondiff # For docker_stack
+    executable: pip3.9 # Or pip3, matching the Python Ansible uses
+    state: present
+  when: inventory_hostname in groups['swarm_master'] # Target only masters
