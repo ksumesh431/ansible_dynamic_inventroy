@@ -53,7 +53,7 @@
 - name: Deploy Tomcat stack to Swarm using file on master
   become: true
   community.docker.docker_stack:
-    state: present
+    state: {{ stack_state }}
     name: tomcat_stack
     compose:
       - "{{ remote_compose_path }}" # *** CORRECTED: Use path ON THE MASTER ***
