@@ -127,3 +127,4 @@
       - jsondiff
     executable: /usr/bin/pip3.9 # Be explicit about which pip
     state: present
+    extra_args: "--ignore-installed"
