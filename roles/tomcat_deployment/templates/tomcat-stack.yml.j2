@@ -14,10 +14,15 @@ services:
       DB_URL: "{{ tomcat_db_url }}"
       DB_USER: "{{ tomcat_db_user }}"
     volumes:
+      # Use named volumes for directories (assuming host paths exist)
       - tomcat_logs:/usr/local/tomcat/logs
       - tomcat_shared:/opt/teams/share/environments/pd
       - tomcat_jasper:/opt/teams/share/jasper
-      - tomcat_glowroot_config:/opt/glowroot/glowroot.properties
+      # *** CORRECTED: Use direct bind mount for the single file ***
+      - type: bind
+        source: /opt/glowroot/glowroot.properties # Host path to the file
+        target: /opt/glowroot/glowroot.properties # Container path for the file
+        read_only: true # Optional: make it read-only in container if appropriate
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/common/SimpleSystemStatusServlet?healthcheck=true"]
       interval: 20s
@@ -48,9 +53,3 @@ volumes:
       type: 'none'
       o: 'bind'
       device: '/opt/teams/share/environments/pd/jasper'
-  tomcat_glowroot_config:
-    driver: local
-    driver_opts:
-      type: 'none'
-      o: 'bind'
-      device: '/opt/glowroot/glowroot.properties'
